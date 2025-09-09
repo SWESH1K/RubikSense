@@ -1,3 +1,4 @@
+import time
 import cv2
 import numpy as np
 import json
@@ -229,6 +230,131 @@ def classify_cube():
     cap.release()
     cv2.destroyAllWindows()
 
+def cube_timer():
+
+    # --- Camera Setup ---
+    # URL = 0  # 0 = default webcam, or replace with your stream URL
+    # FRAME_SIZE = (640, 480)
+
+    cap = cv2.VideoCapture(URL)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_SIZE[0])
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_SIZE[1])
+    cap.set(cv2.CAP_PROP_FPS, 30)
+
+    frame_width = FRAME_SIZE[0]
+    frame_height = FRAME_SIZE[1]
+
+    # --- Zones ---
+    zone_size = 100
+    offset_x = 100  # shift zones 50px to the right
+
+    # Horizontal positions at 25% and 75%, shifted by offset
+    left_zone_x = int(frame_width * 0.25 - zone_size // 2 + offset_x)
+    right_zone_x = int(frame_width * 0.75 - zone_size // 2 + offset_x)
+
+    # Place zones at bottom (20px margin from bottom edge)
+    y1 = frame_height - zone_size - 20
+    y2 = frame_height - 20
+
+    left_zone = (left_zone_x, y1, left_zone_x + zone_size, y2)
+    right_zone = (right_zone_x, y1, right_zone_x + zone_size, y2)
+
+
+
+    # --- Timer ---
+    state = "IDLE"
+    start_time = None
+    elapsed_time = 0.0
+
+    def is_blocked(frame, zone, threshold=0.3):
+        """Check if zone is blocked by hand (using darkness/contrast heuristic)."""
+        x1, y1, x2, y2 = zone
+        roi = frame[y1:y2, x1:x2]
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        dark_ratio = np.mean(gray < 100)
+        return dark_ratio < threshold
+
+    # --- FPS Tracking ---
+    prev_time = time.time()
+
+    frame_count = 0
+    process_every =1  # process every 2nd frame
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame_count += 1
+        process_this = (frame_count % process_every == 0)
+
+        if process_this:
+            # Zone detection
+            left_blocked = is_blocked(frame, left_zone)
+            right_blocked = is_blocked(frame, right_zone)
+
+            # Fill zones if blocked
+            if left_blocked:
+                cv2.rectangle(frame, (left_zone[0], left_zone[1]), (left_zone[2], left_zone[3]), (0, 0, 255), -1)
+            if right_blocked:
+                cv2.rectangle(frame, (right_zone[0], right_zone[1]), (right_zone[2], right_zone[3]), (0, 0, 255), -1)
+
+            # State machine
+            if state == "IDLE":
+                if left_blocked and right_blocked:
+                    state = "READY"
+            elif state == "READY":
+                if not left_blocked and not right_blocked:
+                    state = "RUNNING"
+                    start_time = time.time()
+            elif state == "RUNNING":
+                elapsed_time = time.time() - start_time
+                if left_blocked and right_blocked:
+                    state = "STOPPED"
+                    elapsed_time = time.time() - start_time
+
+        # Draw zones (always)
+        cv2.rectangle(frame, (left_zone[0], left_zone[1]), (left_zone[2], left_zone[3]), (0, 255, 0), 2)
+        cv2.rectangle(frame, (right_zone[0], right_zone[1]), (right_zone[2], right_zone[3]), (0, 255, 0), 2)
+
+        if process_this:
+            if state == "IDLE":
+                cv2.putText(frame, "Place both hands on zones to start", (50, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            elif state == "READY":
+                cv2.putText(frame, "READY - Remove hands to start timer", (50, 100),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 3)
+            elif state == "RUNNING":
+                cv2.putText(frame, f"RUNNING: {elapsed_time:.2f}s", (50, 100),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
+            elif state == "STOPPED":
+                cv2.putText(frame, f"STOPPED: {elapsed_time:.2f}s", (50, 100),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
+                cv2.putText(frame, "Press 'r' to reset", (50, 150),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+        # --- FPS Calculation ---
+        curr_time = time.time()
+        fps = 1 / (curr_time - prev_time)
+        prev_time = curr_time
+        cv2.putText(frame, f"FPS: {fps:.1f}", (50, frame_height - 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+        cv2.imshow("Rubik's Cube Timer", frame)
+
+        key = cv2.waitKey(1)
+        if key == 27:  # ESC
+            break
+        elif key == ord('r'):
+            state = "IDLE"
+            start_time = None
+            elapsed_time = 0.0
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
 if __name__ == '__main__':
-    calibrate_cube()
-    classify_cube()
+    # calibrate_cube()
+    # classify_cube()
+    cube_timer()

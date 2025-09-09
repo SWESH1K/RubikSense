@@ -1,1 +1,2 @@
-.linuxenv
+.linuxenv/
+.__pycache__/
