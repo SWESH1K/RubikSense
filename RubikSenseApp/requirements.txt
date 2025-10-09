@@ -1,0 +1,8 @@
+# RubikSenseApp GUI Requirements
+# Core dependencies
+opencv-python>=4.5.0
+numpy>=1.21.0
+Pillow>=8.0.0
+
+# Optional: For enhanced GUI components (future versions)
+matplotlib>=3.5.0

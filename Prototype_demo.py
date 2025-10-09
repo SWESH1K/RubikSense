@@ -11,9 +11,10 @@ import os
 import random
 
 # --- Configuration ---
-# URL = "http://192.168.29.220:8080/video"
-URL = 1
-FRAME_SIZE = (1280, 720)
+URL = "http://192.168.29.220:8080/video"
+# URL = 1
+# FRAME_SIZE = (1280, 720)
+FRAME_SIZE = (640, 480)
 SAVE_PATH = "cube_calibration.json"
 WINDOW_NAME = "Rubik's Cube"
 BEST_TIME_PATH = "best_time.json"
